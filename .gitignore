@@ -1,0 +1,13 @@
+.DS_Store
+.claude/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+.env
+.venv/
+venv/
+*.egg-info/
+*.log
+ai_*.h3t
+*.h3m
