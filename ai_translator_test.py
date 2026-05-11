@@ -5,9 +5,13 @@
 """
 
 import unittest
+import os
+import tempfile
+from pathlib import Path
 
 from ai_translator import (
     TranslatedOrder,
+    _load_project_env,
     _parse_order_dict,
     _strip_json_markdown,
 )
@@ -94,6 +98,68 @@ class ParseOrderDictTests(unittest.TestCase):
     def test_top_level_not_dict_raises(self):
         with self.assertRaises(ValueError):
             _parse_order_dict([])  # type: ignore[arg-type]
+
+
+class LoadProjectEnvTests(unittest.TestCase):
+    ENV_KEYS = {
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_AUTH_TOKEN",
+        "OPENROUTER_API_KEY",
+        "ANTHROPIC_BASE_URL",
+        "HTTPS_PROXY",
+        "HTTP_PROXY",
+        "EXISTING_KEY",
+        "QUOTED_KEY",
+    }
+
+    def setUp(self):
+        self._old_env = {key: os.environ.get(key) for key in self.ENV_KEYS}
+        for key in self.ENV_KEYS:
+            os.environ.pop(key, None)
+
+    def tearDown(self):
+        for key in self.ENV_KEYS:
+            if self._old_env[key] is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = self._old_env[key]
+
+    def test_loads_env_file_without_overriding_existing_values(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env_path = Path(tmp) / ".env"
+            env_path.write_text(
+                "\n".join([
+                    "# comment",
+                    "ANTHROPIC_AUTH_TOKEN=file-token",
+                    "ANTHROPIC_BASE_URL=https://openrouter.ai/api/v1",
+                    "EXISTING_KEY=file-value",
+                ]),
+                encoding="utf-8",
+            )
+            os.environ["EXISTING_KEY"] = "shell-value"
+
+            _load_project_env(env_path)
+
+            self.assertEqual(os.environ["ANTHROPIC_AUTH_TOKEN"], "file-token")
+            self.assertEqual(os.environ["ANTHROPIC_BASE_URL"], "https://openrouter.ai/api/v1")
+            self.assertEqual(os.environ["EXISTING_KEY"], "shell-value")
+
+    def test_loads_export_prefix_and_quoted_values(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env_path = Path(tmp) / ".env"
+            env_path.write_text("export QUOTED_KEY='quoted value'\n", encoding="utf-8")
+
+            _load_project_env(env_path)
+
+            self.assertEqual(os.environ["QUOTED_KEY"], "quoted value")
+
+    def test_malformed_line_raises(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env_path = Path(tmp) / ".env"
+            env_path.write_text("ANTHROPIC_AUTH_TOKEN\n", encoding="utf-8")
+
+            with self.assertRaises(ValueError):
+                _load_project_env(env_path)
 
 
 if __name__ == "__main__":

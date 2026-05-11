@@ -33,14 +33,22 @@ python3 order.py "我想要末日之刃和天使联盟、4 玩家、中等地图
 python3 -m pip install anthropic
 ```
 
-OpenRouter 需要走本机代理时，按下面方式设置环境变量：
+项目支持读取根目录 `.env` 文件。复制 `.env.example` 为 `.env`，然后填入你的 OpenRouter key：
 
 ```bash
-export HTTPS_PROXY=http://127.0.0.1:7897
-export HTTP_PROXY=http://127.0.0.1:7897
-export ANTHROPIC_AUTH_TOKEN="<OpenRouter key>"
-export ANTHROPIC_BASE_URL="https://openrouter.ai/api/v1"
+cp .env.example .env
 ```
+
+`.env` 示例：
+
+```dotenv
+HTTPS_PROXY=http://127.0.0.1:7897
+HTTP_PROXY=http://127.0.0.1:7897
+ANTHROPIC_BASE_URL=https://openrouter.ai/api/v1
+ANTHROPIC_AUTH_TOKEN=<OpenRouter key>
+```
+
+真实 `.env` 已被 `.gitignore` 忽略，不会提交到 GitHub。shell 里已经设置的环境变量优先级更高，可以临时覆盖 `.env`。
 
 凭证读取优先级：
 

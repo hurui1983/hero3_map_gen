@@ -23,9 +23,14 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass
+from pathlib import Path
 
 import catalog
+
+
+PROJECT_ENV_FILE = Path(__file__).with_name(".env")
 
 
 @dataclass(frozen=True)
@@ -119,6 +124,39 @@ def _strip_json_markdown(text: str) -> str:
     return text
 
 
+def _load_project_env(env_path: Path = PROJECT_ENV_FILE) -> None:
+    """Load KEY=VALUE pairs from .env without overriding existing environment.
+
+    This keeps runtime behavior explicit: shell-provided env vars still win, while
+    local development can put OpenRouter/proxy config in a project-level .env.
+    """
+    if not env_path.exists():
+        return
+
+    for line_no, raw_line in enumerate(env_path.read_text(encoding="utf-8").splitlines(), start=1):
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export "):].strip()
+        if "=" not in line:
+            raise ValueError(f"{env_path} 第 {line_no} 行不是 KEY=VALUE 格式: {raw_line!r}")
+
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key):
+            raise ValueError(f"{env_path} 第 {line_no} 行环境变量名无效: {key!r}")
+
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+        elif value.startswith(("'", '"')) or value.endswith(("'", '"')):
+            raise ValueError(f"{env_path} 第 {line_no} 行引号不匹配: {raw_line!r}")
+
+        os.environ.setdefault(key, value)
+
+
 def translate(user_text: str, api_key: str | None = None) -> TranslatedOrder:
     """调用 Claude 翻译用户的点菜.
 
@@ -138,6 +176,8 @@ def translate(user_text: str, api_key: str | None = None) -> TranslatedOrder:
         import anthropic
     except ImportError as e:
         raise ImportError("需要安装 anthropic: pip install anthropic") from e
+
+    _load_project_env()
 
     # anthropic SDK 兼容两种鉴权 + 自定义 base URL (OpenRouter 等代理):
     #   - ANTHROPIC_API_KEY (官方)
