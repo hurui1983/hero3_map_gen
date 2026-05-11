@@ -42,13 +42,15 @@ cp .env.example .env
 `.env` 示例：
 
 ```dotenv
-HTTPS_PROXY=http://127.0.0.1:7897
-HTTP_PROXY=http://127.0.0.1:7897
+HTTPS_PROXY=http://127.0.0.1:7890
+HTTP_PROXY=http://127.0.0.1:7890
+ALL_PROXY=
+all_proxy=
 ANTHROPIC_BASE_URL=https://openrouter.ai/api/v1
 ANTHROPIC_AUTH_TOKEN=<OpenRouter key>
 ```
 
-真实 `.env` 已被 `.gitignore` 忽略，不会提交到 GitHub。shell 里已经设置的环境变量优先级更高，可以临时覆盖 `.env`。
+真实 `.env` 已被 `.gitignore` 忽略，不会提交到 GitHub。代理变量会以 `.env` 为准，避免继承到系统里的 SOCKS `ALL_PROXY/all_proxy` 后触发缺少 `socksio` 的错误。
 
 凭证读取优先级：
 

@@ -108,6 +108,8 @@ class LoadProjectEnvTests(unittest.TestCase):
         "ANTHROPIC_BASE_URL",
         "HTTPS_PROXY",
         "HTTP_PROXY",
+        "ALL_PROXY",
+        "all_proxy",
         "EXISTING_KEY",
         "QUOTED_KEY",
     }
@@ -143,6 +145,30 @@ class LoadProjectEnvTests(unittest.TestCase):
             self.assertEqual(os.environ["ANTHROPIC_AUTH_TOKEN"], "file-token")
             self.assertEqual(os.environ["ANTHROPIC_BASE_URL"], "https://openrouter.ai/api/v1")
             self.assertEqual(os.environ["EXISTING_KEY"], "shell-value")
+
+    def test_env_file_overrides_proxy_values(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env_path = Path(tmp) / ".env"
+            env_path.write_text(
+                "\n".join([
+                    "HTTPS_PROXY=http://127.0.0.1:7890",
+                    "HTTP_PROXY=http://127.0.0.1:7890",
+                    "ALL_PROXY=",
+                    "all_proxy=",
+                ]),
+                encoding="utf-8",
+            )
+            os.environ["HTTPS_PROXY"] = "http://127.0.0.1:7897"
+            os.environ["HTTP_PROXY"] = "http://127.0.0.1:7897"
+            os.environ["ALL_PROXY"] = "socks5://127.0.0.1:7897"
+            os.environ["all_proxy"] = "socks5://127.0.0.1:7897"
+
+            _load_project_env(env_path)
+
+            self.assertEqual(os.environ["HTTPS_PROXY"], "http://127.0.0.1:7890")
+            self.assertEqual(os.environ["HTTP_PROXY"], "http://127.0.0.1:7890")
+            self.assertNotIn("ALL_PROXY", os.environ)
+            self.assertNotIn("all_proxy", os.environ)
 
     def test_loads_export_prefix_and_quoted_values(self):
         with tempfile.TemporaryDirectory() as tmp:

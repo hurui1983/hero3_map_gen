@@ -31,6 +31,16 @@ import catalog
 
 
 PROJECT_ENV_FILE = Path(__file__).with_name(".env")
+PROXY_ENV_KEYS = {
+    "HTTPS_PROXY",
+    "HTTP_PROXY",
+    "ALL_PROXY",
+    "NO_PROXY",
+    "https_proxy",
+    "http_proxy",
+    "all_proxy",
+    "no_proxy",
+}
 
 
 @dataclass(frozen=True)
@@ -127,8 +137,9 @@ def _strip_json_markdown(text: str) -> str:
 def _load_project_env(env_path: Path = PROJECT_ENV_FILE) -> None:
     """Load KEY=VALUE pairs from .env without overriding existing environment.
 
-    This keeps runtime behavior explicit: shell-provided env vars still win, while
-    local development can put OpenRouter/proxy config in a project-level .env.
+    Shell-provided credential env vars still win. Proxy keys are intentionally
+    overridden by .env because inherited ALL_PROXY/all_proxy values can force
+    httpx onto a SOCKS proxy path that this project does not require.
     """
     if not env_path.exists():
         return
@@ -154,7 +165,13 @@ def _load_project_env(env_path: Path = PROJECT_ENV_FILE) -> None:
         elif value.startswith(("'", '"')) or value.endswith(("'", '"')):
             raise ValueError(f"{env_path} 第 {line_no} 行引号不匹配: {raw_line!r}")
 
-        os.environ.setdefault(key, value)
+        if key in PROXY_ENV_KEYS:
+            if value:
+                os.environ[key] = value
+            else:
+                os.environ.pop(key, None)
+        else:
+            os.environ.setdefault(key, value)
 
 
 def translate(user_text: str, api_key: str | None = None) -> TranslatedOrder:
