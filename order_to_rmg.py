@@ -125,24 +125,10 @@ def build_actions(
         actions.append(CellAction(first_data_row, COL_PACK_DESCRIPTION, order.description,
                                   f"模板描述 -> {order.description!r}"))
 
-    # ---- map_size: 同时改 min/max size ----
-    # 注意: HotA .h3t 的 Min/Max Size 是"允许尺寸的位掩码", 不是像素数.
-    #   bit 1 (2)  = S  (36×36)
-    #   bit 2 (4)  = M  (72×72)
-    #   bit 3 (8)  = L  (108×108)
-    #   bit 4 (16) = XL (144×144)
-    #   bit 5 (32) = XH (216×216)
-    # 经验证: 例如 Skirmish(M).h3t min=max=4 -> 仅允许 M;
-    #         8xm12a.h3t       min=max=32 -> 仅允许 XH.
-    # 单尺寸需要 min=max=同一位; 区间用 OR 不是范围.
-    if order.map_size:
-        size_to_bit = {"S": 2, "M": 4, "L": 8, "XL": 16}
-        bit = size_to_bit.get(order.map_size.upper())
-        if bit is not None:
-            actions.append(CellAction(first_data_row, COL_MAP_MIN_SIZE, str(bit),
-                                      f"地图尺寸位掩码 min -> {bit} ({order.map_size})"))
-            actions.append(CellAction(first_data_row, COL_MAP_MAX_SIZE, str(bit),
-                                      f"地图尺寸位掩码 max -> {bit} ({order.map_size})"))
+    # ---- map_size: 当前骨架 (Jebus Cross) 是 5 zone 设计, 仅 L/XL 能容纳.
+    # 把 min/max size 覆盖成用户指定值会出现 "M 容不下 5 zone" 这一类不可加载模板.
+    # 在没有按尺寸分骨架前, 不写 size 字段, 由骨架原值决定可选尺寸.
+    # order.map_size 仍保留以供未来按尺寸路由不同骨架.
 
     # ---- difficulty: 改所有 Zone 行的 Strength 列 ----
     if order.difficulty:
@@ -152,34 +138,13 @@ def build_actions(
                 actions.append(CellAction(row_idx, COL_ZONE_STRENGTH, rmg_strength,
                                           f"Zone 难度 -> {rmg_strength}"))
 
-    # ---- players: 改所有 Zone 行的 total positions (min=max=N), human 留 [1, N].
-    # Connection 段的 player 列只在原本非空时同步, 避免破坏 "纯 zone, 无连接" 行.
-    if order.players is not None:
-        n = order.players
-        n_str = str(n)
-        for row_idx in range(first_data_row, len(table)):
-            row = table[row_idx]
-            if not is_zone_row(row):
-                continue
-            actions.append(CellAction(row_idx, COL_ZONE_MIN_TOTAL, n_str,
-                                      f"Zone 总玩家数 min -> {n}"))
-            actions.append(CellAction(row_idx, COL_ZONE_MAX_TOTAL, n_str,
-                                      f"Zone 总玩家数 max -> {n}"))
-            actions.append(CellAction(row_idx, COL_ZONE_MIN_HUMAN, "1",
-                                      "Zone 人类玩家 min -> 1"))
-            actions.append(CellAction(row_idx, COL_ZONE_MAX_HUMAN, n_str,
-                                      f"Zone 人类玩家 max -> {n}"))
-            # Connection 段: 仅在该行原本就有 connection player 数据时同步
-            if (COL_CONN_MAX_TOTAL < len(row)
-                    and row[COL_CONN_MAX_TOTAL].strip()):
-                actions.append(CellAction(row_idx, COL_CONN_MIN_TOTAL, n_str,
-                                          f"Connection 总玩家数 min -> {n}"))
-                actions.append(CellAction(row_idx, COL_CONN_MAX_TOTAL, n_str,
-                                          f"Connection 总玩家数 max -> {n}"))
-                actions.append(CellAction(row_idx, COL_CONN_MIN_HUMAN, "1",
-                                          "Connection 人类玩家 min -> 1"))
-                actions.append(CellAction(row_idx, COL_CONN_MAX_HUMAN, n_str,
-                                          f"Connection 人类玩家 max -> {n}"))
+    # ---- players: 不写入 player 字段 ----
+    # 实验结论: 把 Jebus Cross 骨架的 (min_human=1, max_human=4, min_total=2, max_total=4)
+    # 改成 (1, 4, 4, 4) 强锁 4 人 -> HotA 拒绝创建. 系统模板里没有任何
+    # "四值全相等" 的写法 (Skirmish(M) 是 1/2 2/2, mt_Antares 是 1/4 1/4,
+    # Jebus Cross 是 1/4 2/4), 说明这种组合 RMG 不接受.
+    # 骨架本来就支持 2-4 玩家, 用户在游戏 UI 自己选玩家数即可.
+    # order.players 仍保留, 供未来按玩家数路由不同骨架.
 
     # ---- artifacts: 必出. 写到 Map.Artifacts (col 18), 语法 "+ID +ID ..."
     # HotA RMG 文档: + 表示强制出现, - 表示禁止出现, 空格分隔.

@@ -181,80 +181,41 @@ class BuildActionsArtifactsTests(unittest.TestCase):
 
 
 class BuildActionsMapSizeTests(unittest.TestCase):
-    def test_map_size_M(self):
-        order = o2r.ValidatedOrder(
-            creatures=[], artifacts=[], difficulty=None,
-            players=None, map_size="M", description=None,
-        )
-        table = make_table(zone_count=1)
-        actions = o2r.build_actions(order, table)
-        size_actions = [a for a in actions if a.col in (o2r.COL_MAP_MIN_SIZE, o2r.COL_MAP_MAX_SIZE)]
-        self.assertEqual(len(size_actions), 2)
-        for a in size_actions:
-            self.assertEqual(a.value, "4")  # M = bit 2 = 4
+    def test_map_size_not_written(self):
+        # 骨架 (Jebus Cross) 是 5 zone, 强制 size 会出现容不下的模板.
+        # 当前实现: order.map_size 不再被写入字段, 完全由骨架决定可选尺寸.
+        for size in ("S", "M", "L", "XL"):
+            order = o2r.ValidatedOrder(
+                creatures=[], artifacts=[], difficulty=None,
+                players=None, map_size=size, description=None,
+            )
+            table = make_table(zone_count=1)
+            actions = o2r.build_actions(order, table)
+            size_actions = [a for a in actions
+                            if a.col in (o2r.COL_MAP_MIN_SIZE, o2r.COL_MAP_MAX_SIZE)]
+            self.assertEqual(size_actions, [], f"map_size={size} 不应产生 size action")
 
-    def test_map_size_XL(self):
-        order = o2r.ValidatedOrder(
-            creatures=[], artifacts=[], difficulty=None,
-            players=None, map_size="XL", description=None,
-        )
-        table = make_table(zone_count=1)
-        actions = o2r.build_actions(order, table)
-        size_actions = [a for a in actions if a.col in (o2r.COL_MAP_MIN_SIZE, o2r.COL_MAP_MAX_SIZE)]
-        for a in size_actions:
-            self.assertEqual(a.value, "16")  # XL = bit 4 = 16
-
-    def test_players_writes_zone_total_min_max(self):
-        order = o2r.ValidatedOrder(
-            creatures=[], artifacts=[], difficulty=None,
-            players=2, map_size=None, description=None,
-        )
-        table = make_table(zone_count=2)
-        actions = o2r.build_actions(order, table)
-        # 两个 Zone 行 x 4 actions (min/max total + min/max human) = 8 个
-        # Connection 段在测试 fixture 里全空, 所以不会同步
-        player_actions = [a for a in actions
-                          if a.col in (o2r.COL_ZONE_MIN_TOTAL, o2r.COL_ZONE_MAX_TOTAL,
-                                       o2r.COL_ZONE_MIN_HUMAN, o2r.COL_ZONE_MAX_HUMAN)]
-        self.assertEqual(len(player_actions), 8)
-        # 总玩家数应被设成 "2"
-        for a in player_actions:
-            if a.col in (o2r.COL_ZONE_MIN_TOTAL, o2r.COL_ZONE_MAX_TOTAL, o2r.COL_ZONE_MAX_HUMAN):
-                self.assertEqual(a.value, "2")
-            elif a.col == o2r.COL_ZONE_MIN_HUMAN:
-                self.assertEqual(a.value, "1")
-
-    def test_players_skips_connection_section_when_empty(self):
-        # Zone 行的 connection 段原本全空时, 不应往那里写
+    def test_players_not_written(self):
+        # 实验确认: 强写 player 字段会让 HotA 拒绝创建模板.
+        # 当前实现: order.players 仅记录, 不产生任何 cell action.
         order = o2r.ValidatedOrder(
             creatures=[], artifacts=[], difficulty=None,
             players=4, map_size=None, description=None,
         )
-        table = make_table(zone_count=1)
+        table = make_table(zone_count=2)
+        # 给 connection 段填上模拟数据, 确认它也不会被改
+        for r in table[3:]:
+            r[o2r.COL_CONN_MIN_HUMAN] = "1"
+            r[o2r.COL_CONN_MAX_HUMAN] = "4"
+            r[o2r.COL_CONN_MIN_TOTAL] = "2"
+            r[o2r.COL_CONN_MAX_TOTAL] = "4"
         actions = o2r.build_actions(order, table)
-        conn_actions = [a for a in actions
-                        if a.col in (o2r.COL_CONN_MIN_TOTAL, o2r.COL_CONN_MAX_TOTAL,
-                                     o2r.COL_CONN_MIN_HUMAN, o2r.COL_CONN_MAX_HUMAN)]
-        self.assertEqual(conn_actions, [])
-
-    def test_players_syncs_connection_section_when_populated(self):
-        # 模拟 Jebus Cross 那样 connection 段有数据的 Zone 行
-        order = o2r.ValidatedOrder(
-            creatures=[], artifacts=[], difficulty=None,
-            players=3, map_size=None, description=None,
-        )
-        table = make_table(zone_count=1)
-        # 给第一个 Zone 行的 connection 段填上原值, 模拟 Jebus Cross
-        row = table[3]
-        row[o2r.COL_CONN_MIN_HUMAN] = "1"
-        row[o2r.COL_CONN_MAX_HUMAN] = "4"
-        row[o2r.COL_CONN_MIN_TOTAL] = "2"
-        row[o2r.COL_CONN_MAX_TOTAL] = "4"
-        actions = o2r.build_actions(order, table)
-        conn_actions = [a for a in actions
-                        if a.col in (o2r.COL_CONN_MIN_TOTAL, o2r.COL_CONN_MAX_TOTAL,
-                                     o2r.COL_CONN_MIN_HUMAN, o2r.COL_CONN_MAX_HUMAN)]
-        self.assertEqual(len(conn_actions), 4)
+        player_cols = {o2r.COL_ZONE_MIN_TOTAL, o2r.COL_ZONE_MAX_TOTAL,
+                       o2r.COL_ZONE_MIN_HUMAN, o2r.COL_ZONE_MAX_HUMAN,
+                       o2r.COL_CONN_MIN_TOTAL, o2r.COL_CONN_MAX_TOTAL,
+                       o2r.COL_CONN_MIN_HUMAN, o2r.COL_CONN_MAX_HUMAN}
+        player_actions = [a for a in actions if a.col in player_cols]
+        self.assertEqual(player_actions, [], "players 不应产生任何 cell action")
 
     def test_invalid_map_size_silently_ignored(self):
         # 计划没要求严格校验 map_size, 给个奇怪值不应崩
@@ -311,15 +272,17 @@ class FullOrderIntegrationTests(unittest.TestCase):
         table = make_table(zone_count=4, conn_only_count=2)
         actions = o2r.build_actions(order, table)
 
-        # 应至少包含: name(2) + description(1) + size(2) + strength(4) = 9
-        self.assertGreaterEqual(len(actions), 9)
+        # 应至少包含: name(2) + description(1) + strength(4) = 7
+        # (map_size 当前不写字段, 见 BuildActionsMapSizeTests)
+        self.assertGreaterEqual(len(actions), 7)
 
         # 全部应用不报错
         o2r.apply_actions(table, actions)
         self.assertEqual(table[3][o2r.COL_PACK_NAME], "AI 完整测试")
         self.assertEqual(table[3][o2r.COL_MAP_NAME], "AI 完整测试")
         self.assertEqual(table[3][o2r.COL_PACK_DESCRIPTION], "完整测试")
-        self.assertEqual(table[3][o2r.COL_MAP_MIN_SIZE], "4")  # M = bit 2
+        # map_size 不写入, 骨架原值保留 (这里 fixture 用空表, 故为 "")
+        self.assertEqual(table[3][o2r.COL_MAP_MIN_SIZE], "")
         # 4 个 Zone 行的 strength 应该都是 strong
         for r in range(3, 7):
             self.assertEqual(table[r][o2r.COL_ZONE_STRENGTH], "strong")

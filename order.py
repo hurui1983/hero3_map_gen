@@ -1,21 +1,23 @@
 """
-order.py - AI 点菜式 RMG 模板生成器 CLI
+order.py - 结构化 CLI HotA RMG 模板生成器
 
 用法:
-  python order.py "我想要金龙、末日之刃、4 玩家、强敌"
-  python order.py "海岛风、有大天使、容易一点、2 玩家"
+  python order.py --artifacts 末日之刃,天使联盟 --creatures 金龙 \
+      --difficulty hard --players 4
+  python order.py --list
+  python order.py --clean
 
-环境:
-  ANTHROPIC_API_KEY - Anthropic API key (Claude)
+自然语言交互在 Claude Code 对话里完成: 让 Claude 把"我想要 X"拆成
+具体的 catalog 条目, 然后调用这个 CLI 生成 .h3t.
 """
 
 from __future__ import annotations
 
 import argparse
 import sys
+from dataclasses import dataclass
 
 import catalog
-import ai_translator
 import order_to_rmg as o2r
 import template_writer as tw
 
@@ -33,28 +35,38 @@ class StrictValidationError(Exception):
         super().__init__(f"{len(unresolved)} 个输入项未能精确识别")
 
 
-def _validate(translated: ai_translator.TranslatedOrder, log) -> o2r.ValidatedOrder:
-    """严格白名单校验: 任一菜名未精确命中 catalog 即抛 StrictValidationError.
+@dataclass(frozen=True)
+class RawOrder:
+    """CLI 解析或测试构造后的结构化输入. 尚未经过 catalog 校验."""
+    creatures: list[str]
+    artifacts: list[str]
+    specials: list[str]
+    difficulty: str | None
+    players: int | None
+    map_size: str | None
+    description: str | None
+    name: str | None
 
-    校验通过的项会被收录; 任何被 LLM 标 unrecognized 的、或 catalog
-    解析失败的, 都会汇总后抛错, 包含相似建议.
-    """
+
+def _validate(raw: RawOrder, log) -> o2r.ValidatedOrder:
+    """严格白名单校验: 任一菜名未精确命中 catalog 即抛 StrictValidationError."""
     creatures: list[catalog.CatalogItem] = []
     artifacts: list[catalog.CatalogItem] = []
     unresolved: list[tuple[str, str, list[str]]] = []
 
-    for raw_name in translated.creatures:
+    for raw_name in raw.creatures:
         item = catalog.resolve_creature(raw_name)
         if item:
             creatures.append(item)
             log(f"  [OK] 生物: {item.name_zh} (ID={item.rmg_id}) "
-                f"[NOTE: HotA RMG 不支持指定具体生物, 通过难度间接体现]")
+                f"[NOTE: HotA RMG 没有'指定具体生物必出'字段, 模板只能调'野外守军强度', "
+                f"不保证地图上出现这只龙; 要强保证请用地图编辑器手放]")
         else:
             suggestions = catalog.suggest_similar(raw_name)
             unresolved.append(("生物", raw_name, suggestions))
             log(f"  [FAIL] 生物 {raw_name!r} 不在词典中")
 
-    for raw_name in translated.artifacts:
+    for raw_name in raw.artifacts:
         item = catalog.resolve_artifact(raw_name)
         if item:
             artifacts.append(item)
@@ -64,7 +76,7 @@ def _validate(translated: ai_translator.TranslatedOrder, log) -> o2r.ValidatedOr
             unresolved.append(("神器", raw_name, suggestions))
             log(f"  [FAIL] 神器 {raw_name!r} 不在词典中")
 
-    for raw_name in translated.specials:
+    for raw_name in raw.specials:
         obj = catalog.resolve_special(raw_name)
         if obj:
             log(f"  [INFO] 特殊对象: {obj.name_zh} - {obj.note}")
@@ -73,43 +85,39 @@ def _validate(translated: ai_translator.TranslatedOrder, log) -> o2r.ValidatedOr
             unresolved.append(("特殊对象", raw_name, suggestions))
             log(f"  [FAIL] 特殊对象 {raw_name!r} 不在词典中")
 
-    # LLM 自己回报的"我没识别"
-    for raw_name in translated.unrecognized:
-        suggestions = catalog.suggest_similar(raw_name)
-        unresolved.append(("LLM未识别", raw_name, suggestions))
-        log(f"  [FAIL] LLM 未识别 {raw_name!r}")
-
     difficulty_key: str | None = None
-    if translated.difficulty:
-        difficulty_key = catalog.resolve_difficulty(translated.difficulty)
+    if raw.difficulty:
+        difficulty_key = catalog.resolve_difficulty(raw.difficulty)
         if difficulty_key:
-            log(f"  [OK] 难度: {difficulty_key} -> RMG {catalog.difficulty_to_rmg_value(difficulty_key)}")
+            log(f"  [OK] 难度: {difficulty_key} -> Zone.Strength="
+                f"{catalog.difficulty_to_rmg_value(difficulty_key)} "
+                f"[NOTE: 这是'野外守军强度', 不是游戏开局难度 (Easy/Hard/Impossible 等)]")
         else:
-            unresolved.append(("难度", translated.difficulty, ["easy", "normal", "hard", "expert", "impossible"]))
-            log(f"  [FAIL] 难度 {translated.difficulty!r} 无效")
+            unresolved.append(("难度", raw.difficulty, ["easy", "normal", "hard", "expert", "impossible"]))
+            log(f"  [FAIL] 难度 {raw.difficulty!r} 无效")
 
     players: int | None = None
-    if translated.players is not None:
-        if 2 <= translated.players <= 8:
-            players = translated.players
-            log(f"  [OK] 玩家数: {players}")
+    if raw.players is not None:
+        if 2 <= raw.players <= 8:
+            players = raw.players
+            log(f"  [OK] 玩家数: {players} "
+                f"[NOTE: 骨架 (Jebus Cross) 支持 2-4 人, 此字段当前不写入, 可在游戏 UI 内选择]")
         else:
-            unresolved.append(("玩家数", str(translated.players), ["2", "3", "4", "5", "6", "7", "8"]))
-            log(f"  [FAIL] 玩家数 {translated.players} 超出 2~8 范围")
+            unresolved.append(("玩家数", str(raw.players), ["2", "3", "4", "5", "6", "7", "8"]))
+            log(f"  [FAIL] 玩家数 {raw.players} 超出 2~8 范围")
 
     map_size: str | None = None
-    if translated.map_size:
-        if translated.map_size.upper() in {"S", "M", "L", "XL"}:
-            map_size = translated.map_size.upper()
-            log(f"  [OK] 地图大小: {map_size}")
+    if raw.map_size:
+        if raw.map_size.upper() in {"S", "M", "L", "XL"}:
+            map_size = raw.map_size.upper()
+            log(f"  [OK] 地图大小: {map_size} "
+                f"[NOTE: 骨架 (Jebus Cross) 仅支持 L/XL, 此字段当前不写入, 可在游戏 UI 内选择]")
         else:
-            unresolved.append(("地图大小", translated.map_size, ["S", "M", "L", "XL"]))
-            log(f"  [FAIL] 地图大小 {translated.map_size!r} 无效")
+            unresolved.append(("地图大小", raw.map_size, ["S", "M", "L", "XL"]))
+            log(f"  [FAIL] 地图大小 {raw.map_size!r} 无效")
 
     if unresolved:
         raise StrictValidationError(unresolved)
-
-    description = translated.description
 
     return o2r.ValidatedOrder(
         creatures=creatures,
@@ -117,43 +125,31 @@ def _validate(translated: ai_translator.TranslatedOrder, log) -> o2r.ValidatedOr
         difficulty=difficulty_key,
         players=players,
         map_size=map_size,
-        description=description,
+        description=raw.description,
+        name=raw.name,
     )
 
 
-def run(user_text: str, *, log=print) -> int:
-    """主流程: 翻译 -> 校验 -> 生成 .h3t.
+def run(raw: RawOrder, *, log=print) -> int:
+    """主流程: 校验 -> 生成 .h3t.
 
     Returns:
         0 表示成功, 非 0 表示出错
     """
-    log(f"[输入] {user_text!r}")
+    log(f"[输入] creatures={raw.creatures} artifacts={raw.artifacts} "
+        f"specials={raw.specials} difficulty={raw.difficulty} players={raw.players} "
+        f"map_size={raw.map_size} name={raw.name!r} description={raw.description!r}")
 
-    log("\n[1/3] AI 翻译中...")
+    log("\n[1/2] 严格白名单校验:")
     try:
-        translated = ai_translator.translate(user_text)
-    except (ImportError, RuntimeError, ValueError) as e:
-        log(f"  [ERROR] AI 翻译失败: {e}")
-        return 2
-    except Exception as e:  # 兜底: anthropic SDK 的网络/权限/限流错误
-        log(f"  [ERROR] AI 翻译异常 ({type(e).__name__}): {e}")
-        return 2
-
-    log(f"  AI 原始输出: creatures={translated.creatures}, artifacts={translated.artifacts}, "
-        f"specials={translated.specials}, unrecognized={translated.unrecognized}, "
-        f"difficulty={translated.difficulty}, players={translated.players}, "
-        f"map_size={translated.map_size}")
-
-    log("\n[2/3] 严格白名单校验:")
-    try:
-        validated = _validate(translated, log)
+        validated = _validate(raw, log)
     except StrictValidationError as e:
         log("\n[ERROR] 以下输入未能精确识别, 已中止生成:")
-        for category, raw, suggestions in e.unresolved:
+        for category, raw_text, suggestions in e.unresolved:
             sug_text = ", ".join(suggestions) if suggestions else "(无)"
-            log(f"  - [{category}] {raw!r}")
+            log(f"  - [{category}] {raw_text!r}")
             log(f"      类似项: {sug_text}")
-        log("\n请在 catalog.py 中补充这些条目, 或修改输入用确切的菜单名后重试.")
+        log("\n请在 catalog.py 中补充这些条目, 或修改参数用确切的菜单名后重试.")
         log(f"当前 catalog 包含: {len(catalog.CREATURES)} 生物 + "
             f"{len(catalog.ARTIFACTS)} 神器 + {len(catalog.SPECIAL_OBJECTS)} 特殊对象, "
             f"完整列表见 catalog.py.")
@@ -163,7 +159,7 @@ def run(user_text: str, *, log=print) -> int:
             or validated.players or validated.map_size):
         log("\n  [WARN] 没有任何字段被识别, 将生成默认模板")
 
-    log("\n[3/3] 写入模板:")
+    log("\n[2/2] 写入模板:")
     out_path = tw.generate_from_order(validated)
     log(f"  生成: {out_path}")
     log(f"  模板显示名: {tw.derive_name_from_order(validated)!r}")
@@ -172,19 +168,46 @@ def run(user_text: str, *, log=print) -> int:
     return 0
 
 
+def _csv_to_list(s: str | None) -> list[str]:
+    if not s:
+        return []
+    return [x.strip() for x in s.split(",") if x.strip()]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="AI 点菜式 HoMM3/HotA 随机地图模板生成器",
+        description="结构化 CLI HotA RMG 模板生成器 (无 LLM 依赖)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
-  python order.py "我想要金龙、末日之刃、4 玩家、强敌"
-  python order.py "中等地图, 大天使, 简单点"
+  python order.py --artifacts 末日之刃,天使联盟 --creatures 金龙 \\
+      --difficulty hard --players 4
+  python order.py --creatures 圣龙,水晶龙,仙龙,锈龙 \\
+      --artifacts 末日之刃,天使联盟 --difficulty hard --players 4 \\
+      --name "AI 四大龙 末日之刃 天使联盟"
   python order.py --list
   python order.py --clean
+
+自然语言交互在 Claude Code 对话里完成: 让 Claude 把意图拆成
+catalog 条目后再调本 CLI.
         """,
     )
-    parser.add_argument("text", nargs="?", help="点菜的自然语言文本")
+    parser.add_argument("--creatures", default="",
+                        help="逗号分隔的生物中文名, 例: 金龙,圣龙")
+    parser.add_argument("--artifacts", default="",
+                        help="逗号分隔的神器中文名, 例: 末日之刃,天使联盟")
+    parser.add_argument("--specials", default="",
+                        help="逗号分隔的特殊对象, 例: 圣杯")
+    parser.add_argument("--difficulty", default=None,
+                        help="难度: easy / normal / hard")
+    parser.add_argument("--players", type=int, default=None,
+                        help="玩家数 2~8")
+    parser.add_argument("--map-size", dest="map_size", default=None,
+                        help="地图大小 S / M / L / XL (当前不写入字段, 仅记录)")
+    parser.add_argument("--name", default=None,
+                        help="模板显示名 (默认自动衍生)")
+    parser.add_argument("--description", default=None,
+                        help="模板描述")
     parser.add_argument("--list", action="store_true", help="列出已生成的所有 AI 模板")
     parser.add_argument("--clean", action="store_true", help="删除所有 AI 模板")
     args = parser.parse_args()
@@ -203,11 +226,23 @@ def main() -> int:
         print(f"已删除 {n} 个 AI 模板")
         return 0
 
-    if not args.text:
+    raw = RawOrder(
+        creatures=_csv_to_list(args.creatures),
+        artifacts=_csv_to_list(args.artifacts),
+        specials=_csv_to_list(args.specials),
+        difficulty=args.difficulty,
+        players=args.players,
+        map_size=args.map_size,
+        description=args.description,
+        name=args.name,
+    )
+
+    if not (raw.creatures or raw.artifacts or raw.specials or raw.difficulty
+            or raw.players or raw.map_size or raw.name or raw.description):
         parser.print_help()
         return 1
 
-    return run(args.text)
+    return run(raw)
 
 
 if __name__ == "__main__":
