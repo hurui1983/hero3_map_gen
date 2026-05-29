@@ -60,6 +60,7 @@ def parse_general() -> dict:
         "hota_version"       : 0,
         "hota_data_1"        : b'',
         "hota_data_2"        : b'',
+        "hota_data_3"        : b'',
         "name"               : "",
         "description"        : "",
         "map_size"           : 0,
@@ -81,6 +82,11 @@ def parse_general() -> dict:
         info["is_arena"]           = bool(io.read_int(1))
         info["hota_data_2"]        =      io.read_raw(8)
         info["allowed_difficulty"] =      io.read_bits(1)
+        # HotA map format v7 (HotA 1.7+) inserts one extra byte here before
+        # has_hero. Without it, map_size reads 1 byte off (e.g. 0x6c01=27649
+        # instead of 108). Captured opaquely to round-trip faithfully.
+        if info["hota_version"] >= 7:
+            info["hota_data_3"]    =      io.read_raw(1)
 
     elif info["map_format"] in (MapFormat.RoE, MapFormat.AB, MapFormat.SoD):
         # RoE/AB/SoD: No HotA-specific header fields
@@ -111,6 +117,8 @@ def write_general(info: dict) -> None:
         io.write_int( info["is_arena"], 1)
         io.write_raw( info["hota_data_2"])
         io.write_bits(info["allowed_difficulty"])
+        if info["hota_version"] >= 7:
+            io.write_raw(info["hota_data_3"])
 
     io.write_int(    info["has_hero"], 1)
     io.write_int(    info["map_size"], 4)

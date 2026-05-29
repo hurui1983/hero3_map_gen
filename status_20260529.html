@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>hero3 当前状态报告 - 2026-05-29</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f5f2;
+      --panel: #ffffff;
+      --text: #1f2328;
+      --muted: #687078;
+      --line: #d9dde3;
+      --accent: #0f766e;
+      --accent-soft: #e7f5f2;
+      --warn: #9a5b00;
+      --warn-soft: #fff4d8;
+      --risk: #b42318;
+      --risk-soft: #fde8e6;
+      --ok: #157347;
+      --ok-soft: #e8f5ee;
+      --code: #f1f3f5;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+        "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      line-height: 1.55;
+    }
+
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 32px 22px 56px;
+    }
+
+    header {
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 20px;
+      margin-bottom: 22px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 30px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 20px;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0 0 12px;
+    }
+
+    code {
+      background: var(--code);
+      border: 1px solid #e4e7eb;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+      font-size: 0.92em;
+    }
+
+    .meta {
+      color: var(--muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 18px;
+      font-size: 14px;
+    }
+
+    .summary {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--accent);
+      border-radius: 8px;
+      padding: 18px 20px;
+      margin-bottom: 18px;
+    }
+
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px 20px;
+      margin: 16px 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .note {
+      border-radius: 8px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      background: #fbfbfa;
+    }
+
+    .note strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .ok {
+      background: var(--ok-soft);
+      border-color: #b8dfc8;
+    }
+
+    .warn {
+      background: var(--warn-soft);
+      border-color: #f0d18a;
+    }
+
+    .risk {
+      background: var(--risk-soft);
+      border-color: #f1b4ae;
+    }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 2px 9px;
+      margin-right: 6px;
+      font-size: 12px;
+      font-weight: 650;
+      color: var(--accent);
+      background: var(--accent-soft);
+      border: 1px solid #b7ddd7;
+      white-space: nowrap;
+    }
+
+    .tag.ok {
+      color: var(--ok);
+      background: var(--ok-soft);
+      border-color: #b8dfc8;
+    }
+
+    .tag.warn {
+      color: var(--warn);
+      background: var(--warn-soft);
+      border-color: #f0d18a;
+    }
+
+    .tag.risk {
+      color: var(--risk);
+      background: var(--risk-soft);
+      border-color: #f1b4ae;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 0;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line);
+      padding: 9px 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: #3a3f45;
+      background: #f4f6f8;
+      font-weight: 700;
+    }
+
+    ul,
+    ol {
+      margin: 8px 0 0;
+      padding-left: 22px;
+    }
+
+    li {
+      margin: 5px 0;
+    }
+
+    .mono-list {
+      margin-top: 8px;
+    }
+
+    .mono-list li {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 760px) {
+      main {
+        padding: 22px 14px 42px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+
+      table {
+        display: block;
+        overflow-x: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>hero3 当前状态报告</h1>
+    <div class="meta">
+      <span>生成时间：2026-05-29 14:48:47 CST（Asia/Shanghai）</span>
+      <span>工作目录：<code>/Users/hurui/Developer/hero3</code></span>
+      <span>分支：<code>main</code></span>
+      <span>远程：<code>git@github.com:hurui1983/hero3_map_gen.git</code></span>
+    </div>
+  </header>
+
+  <div class="summary">
+    <p><strong>结论：</strong>当前仓库已经从早期的 HoMM3 地图编辑原型，演进成两条可用链路：稳定主线是 HotA <code>.h3t</code> 随机地图模板生成器；新增但尚未提交的链路是 HotA <code>.h3m</code> 精确对象注入器。</p>
+    <p><code>.h3t</code> 主线适合“调 RMG 生成倾向、必出神器、生成 AI 模板”；<code>.h3m</code> 注入器适合“已生成地图后，100% 放入指定生物和神器”。本次单测与真实临时地图 smoke 均通过，但新增注入链路仍建议在游戏内打开验证后再作为正式功能发布。</p>
+  </div>
+
+  <section>
+    <h2>仓库状态</h2>
+    <div class="grid">
+      <div class="note ok">
+        <strong>Git 基线</strong>
+        <p>当前分支是 <code>main</code>，最近提交为 <code>ad5d172 chore: save local map generator updates</code>。</p>
+      </div>
+      <div class="note warn">
+        <strong>工作区不是干净状态</strong>
+        <p>已有未提交改动；本报告生成后还会新增 <code>status_20260529.html</code>。</p>
+      </div>
+    </div>
+
+    <h3>生成本报告前的 git status</h3>
+    <ul class="mono-list">
+      <li>M h3m/inject.py</li>
+      <li>M lib/h3_map_editor/src/handler_01_general.py</li>
+      <li>?? h3m/placement.py</li>
+      <li>?? h3m/reader.py</li>
+      <li>?? h3m/sprites.py</li>
+      <li>?? inject_cli.py</li>
+      <li>?? inject_test.py</li>
+    </ul>
+
+    <h3>主要代码规模</h3>
+    <p>核心业务与测试约 2755 行：<code>order.py</code>、<code>catalog.py</code>、<code>order_to_rmg.py</code>、<code>template_writer.py</code>、<code>inject_cli.py</code>、<code>h3m/*</code> 以及四个单测文件。</p>
+  </section>
+
+  <section>
+    <h2>功能总览</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>链路</th>
+          <th>入口</th>
+          <th>当前能力</th>
+          <th>状态</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>.h3t</code> RMG 模板生成</td>
+          <td><code>order.py</code></td>
+          <td>严格解析点菜参数，写 HotA RMG 模板；支持模板名、描述、野外守军强度、必出神器。</td>
+          <td><span class="tag ok">可用主线</span></td>
+        </tr>
+        <tr>
+          <td><code>.h3m</code> 精确对象注入</td>
+          <td><code>inject_cli.py</code></td>
+          <td>读取最新或指定地图，智能选址，字节级追加生物/神器对象，并重新解析自检。</td>
+          <td><span class="tag warn">未提交新增功能</span></td>
+        </tr>
+        <tr>
+          <td>地图内容验证</td>
+          <td><code>verify_map.py</code></td>
+          <td>扫描最新或指定 <code>.h3m</code>，统计目标神器、生物 sprite 和部分 instance 引用。</td>
+          <td><span class="tag ok">辅助工具</span></td>
+        </tr>
+        <tr>
+          <td>早期自然语言地图编辑原型</td>
+          <td><code>generator.py</code> / <code>agent.py</code></td>
+          <td>LLM 解析描述后通过 <code>MapAgent</code> 改地形、对象并保存 <code>.h3m</code>。</td>
+          <td><span class="tag risk">旧原型</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2><code>.h3t</code> 模板生成主线</h2>
+    <p><code>README.md</code> 当前把项目定位为“HoMM3 / HotA 随机地图模板生成器”：把结构化参数转换成 HotA <code>.h3t</code>，纯本地、无 LLM/网络依赖。自然语言意图应先在对话里拆成明确参数，再调用 CLI。</p>
+
+    <div class="grid">
+      <div class="note ok">
+        <strong>输入白名单</strong>
+        <p><code>catalog.py</code> 当前包含 22 个生物、11 个神器、1 个特殊对象。任一输入不命中 catalog 会失败退出，不会静默猜测。</p>
+      </div>
+      <div class="note ok">
+        <strong>输出位置</strong>
+        <p>写入 <code>/Applications/英雄无敌3：二合一.app/Contents/drive_c/game/HotA_RMGTemplates/</code>，骨架模板 <code>Jebus Cross.h3t</code> 当前存在。</p>
+      </div>
+    </div>
+
+    <h3>已支持写入的字段</h3>
+    <ul>
+      <li>模板名与描述：<code>Pack.Name</code>、<code>Map.Name</code>、<code>Pack.Description</code>。</li>
+      <li>野外守军强度：<code>Zone.Strength</code>，<code>easy/normal/hard</code> 对应 <code>weak/avg/strong</code>。</li>
+      <li>必出神器：写入 <code>Map.Artifacts</code>，例如 <code>+128 +129</code>。</li>
+    </ul>
+
+    <h3>明确不写入的字段</h3>
+    <ul>
+      <li>具体生物：HotA RMG 模板没有“指定某只生物必出”的字段，<code>--creatures</code> 只做 catalog 识别和日志说明。</li>
+      <li>玩家数：强写 Jebus Cross 玩家字段会导致 HotA 拒绝创建，当前保留给游戏 UI 选择。</li>
+      <li>地图大小：骨架是 5 zone 设计，强行写 S/M 容易不可加载，当前保留骨架原值。</li>
+    </ul>
+
+    <h3>当前游戏目录里已有 AI 模板</h3>
+    <ul class="mono-list">
+      <li>ai_PoC2A_high_freq.h3t</li>
+      <li>ai_PoC2B_combo_arts.h3t</li>
+      <li>ai_PoC2C_force_neutral.h3t</li>
+      <li>ai_圣龙_水晶龙_末日之刃_天使联盟_hard_2148.h3t</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><code>.h3m</code> 精确注入新增链路</h2>
+    <p>新增链路解决 <code>.h3t</code> 的核心限制：RMG 模板无法保证具体生物出现，而 <code>inject_cli.py</code> 在已经生成的 <code>.h3m</code> 上直接追加对象，因此可以精确放入指定生物和神器。</p>
+
+    <h3>当前实现</h3>
+    <ul>
+      <li><code>h3m/reader.py</code> 只读复用 <code>lib/h3_map_editor</code> 解析 HotA 地图，构建地形、对象、可通行与占用网格。</li>
+      <li><code>h3m/placement.py</code> 选地表主可达区内的开阔点，避开水、岩、静态对象和不可达孤岛。</li>
+      <li><code>h3m/sprites.py</code> 维护 catalog 生物 ID 到冒险地图 sprite def 的映射。</li>
+      <li><code>h3m/inject.py</code> 字节级定位 object attributes / object data section，追加新 attribute 和 instance，再 gzip 写回。</li>
+      <li><code>inject_cli.py</code> 负责严格解析参数、调用选址与注入，并重新解析输出图做对象数、坐标、类型、地形自检。</li>
+    </ul>
+
+    <h3>本次真实文件 smoke</h3>
+    <table>
+      <tbody>
+        <tr>
+          <th>命令</th>
+          <td><code>python3 inject_cli.py --add-creature 金龙:1 --add-artifact 末日之刃 --out-dir /tmp/hero3_status_smoke --name codex_status_smoke --seed 20260529</code></td>
+        </tr>
+        <tr>
+          <th>源图</th>
+          <td><code>Player 2026.05.17 14;52 ai_PoC2C_force_neutral.h3m</code></td>
+        </tr>
+        <tr>
+          <th>源图状态</th>
+          <td>108x108，仅地表，已有对象 3448 个。</td>
+        </tr>
+        <tr>
+          <th>注入计划</th>
+          <td>金龙 x1：<code>(96,34,0)</code>；末日之刃：<code>(4,90,0)</code>。</td>
+        </tr>
+        <tr>
+          <th>结果</th>
+          <td>对象数 3448 -&gt; 3450，输出图重新解析自检通过；临时文件已删除。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p class="note warn"><strong>发布前缺口</strong>本次 smoke 没有把输出图放进游戏内实际打开，只验证到字节 patch 后可被当前解析器重读。若要把注入链路作为正式功能，下一步应生成一个目标图到 <code>Maps/</code> 并在游戏 UI 中加载确认。</p>
+  </section>
+
+  <section>
+    <h2>旧原型状态</h2>
+    <p><code>DEV_PLAN.md</code>、<code>agent.py</code>、<code>generator.py</code>、<code>usage_demo.py</code> 属于早期“自然语言生成/编辑 <code>.h3m</code>”方向。当前目录里没有 <code>base.h3m</code>、<code>generated_map.h3m</code> 或 <code>result_mvp.h3m</code>，因此这条链路不是当前可直接交付的主线。</p>
+    <p><code>h3m/reader.py</code> 的注释也明确了一个关键判断：<code>lib/h3_map_editor</code> 的 parse 路径可用于只读结构分析，但 write 路径曾出现 round-trip 不一致，因此新增注入链路选择字节级 patch，而不是继续依赖完整写回。</p>
+  </section>
+
+  <section>
+    <h2>验证记录</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>检查项</th>
+          <th>结果</th>
+          <th>说明</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>python3 -m unittest catalog_test order_test order_to_rmg_test inject_test</code></td>
+          <td><span class="tag ok">通过</span></td>
+          <td>86 个测试全部通过。</td>
+        </tr>
+        <tr>
+          <td><code>python3 order.py --help</code></td>
+          <td><span class="tag ok">通过</span></td>
+          <td>CLI 参数正常展示。</td>
+        </tr>
+        <tr>
+          <td><code>python3 inject_cli.py --help</code></td>
+          <td><span class="tag ok">通过</span></td>
+          <td>新增注入 CLI 参数正常展示。</td>
+        </tr>
+        <tr>
+          <td>游戏目录与 RMG 骨架</td>
+          <td><span class="tag ok">存在</span></td>
+          <td><code>game</code>、<code>HotA_RMGTemplates</code>、<code>Maps</code>、<code>random_maps</code> 与 <code>Jebus Cross.h3t</code> 均存在。</td>
+        </tr>
+        <tr>
+          <td><code>python3 order.py --list</code></td>
+          <td><span class="tag ok">通过</span></td>
+          <td>读到 4 个 <code>ai_*.h3t</code> 模板。</td>
+        </tr>
+        <tr>
+          <td><code>.h3m</code> 注入 smoke</td>
+          <td><span class="tag ok">通过</span></td>
+          <td>临时输出到 <code>/tmp</code>，自检通过后已清理。</td>
+        </tr>
+        <tr>
+          <td>游戏内手动加载</td>
+          <td><span class="tag warn">本次未做</span></td>
+          <td>注入 smoke 未进入游戏 UI；这是新增链路发布前的剩余验证。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>风险与建议</h2>
+    <ol>
+      <li><strong>先提交前先分层整理。</strong>如果接受新增注入链路，应把 <code>inject_cli.py</code>、<code>h3m/reader.py</code>、<code>h3m/placement.py</code>、<code>h3m/sprites.py</code>、<code>h3m/inject.py</code>、<code>inject_test.py</code> 作为一组提交，并在提交信息里说明 HotA artifact 18 字节修复与 HotA v7 header patch。</li>
+      <li><strong>补 README。</strong>当前 README 只覆盖 <code>.h3t</code> 模板生成；若注入器成为正式功能，需要新增“模板生成 vs 地图注入”的选择指南和示例命令。</li>
+      <li><strong>做一次游戏内验收。</strong>用 <code>inject_cli.py</code> 输出到 <code>Maps/</code>，启动游戏在单人场景列表打开，确认地图能加载、目标对象可见且可拾取/可交战。</li>
+      <li><strong>谨慎使用旧原型。</strong><code>generator.py</code> / <code>agent.py</code> 不应和当前注入链路混用，除非重新验证 <code>h3_map_editor</code> 的完整写回问题。</li>
+    </ol>
+  </section>
+</main>
+</body>
+</html>

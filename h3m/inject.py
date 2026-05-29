@@ -114,12 +114,24 @@ def build_monster_instance(
 
 
 def build_artifact_instance(x: int, y: int, z: int, kind: int) -> bytes:
-    """Artifact instance: 基础 12 字节 + has_guardians=0 (1 字节)."""
+    """Artifact instance (HotA 格式, 18 字节).
+
+    基础 12 字节 (x,y,z,kind,5 zeros) + HotA artifact body:
+      [u8]   hasMessageOrGuards = 0
+      [u32]  pickup_mode = 0 (Disabled, 无特殊领取条件)
+      [u8]   pickup_conditions = 0x7F (= bits 0b0111_1111, 7 个标志全开)
+
+    注: 旧 PoC 只写了 1 字节 (has_guardians), 缺少 HotA 1.7 新增的
+    pickup_mode(4) + pickup_conditions(1), 会让解析器错位、地图加载失败.
+    这里的字段值取自游戏 random_maps 里真实 Artifact 对象的实测值.
+    """
     return (
         bytes([x, y, z])
         + struct.pack("<I", kind)
         + b"\x00" * 5
-        + bytes([0])  # has_guardians = 0
+        + bytes([0])              # hasMessageOrGuards = 0
+        + struct.pack("<I", 0)    # pickup_mode = 0 (Disabled)
+        + bytes([0x7F])           # pickup_conditions
     )
 
 
@@ -254,12 +266,12 @@ COMBO_ARTIFACT_SPRITES = {
 }
 
 
-def make_neutral_dragon_spec(creature_id: int, sprite: bytes | None = None) -> AttrSpec:
-    """构造一个中立龙 attribute spec (class=54 Monster)."""
-    sprite = sprite or NEUTRAL_DRAGON_SPRITES.get(creature_id, f"AVWmrnd0.def".encode())
-    # passability: 6 bytes 全 0xFF (全部 passable 除了 actionable tile)
-    # actionability: 怪兵占 1 tile (右下角), 其他 0
-    # 这是猜测值, 实测 attributes section 里 Monster 通常用以下模式
+def make_monster_spec(creature_id: int, sprite: bytes) -> AttrSpec:
+    """构造一个 Monster attribute spec (class=54), 适用于任意生物.
+
+    passability/actionability/landscape 取 PoC 实测可加载的 1x1 怪兵模式
+    (怪兵 footprint 固定为右下角 1 格, 与具体生物无关).
+    """
     return AttrSpec(
         def_name=sprite,
         passability=b"\xff\xff\xff\xff\xff\xbf",   # all pass except bottom-right
@@ -271,6 +283,12 @@ def make_neutral_dragon_spec(creature_id: int, sprite: bytes | None = None) -> A
         object_group=2,  # 2 = monster (editor group)
         is_ground=0,
     )
+
+
+def make_neutral_dragon_spec(creature_id: int, sprite: bytes | None = None) -> AttrSpec:
+    """构造一个中立龙 attribute spec (make_monster_spec 的便捷封装)."""
+    sprite = sprite or NEUTRAL_DRAGON_SPRITES.get(creature_id, b"AVWmrnd0.def")
+    return make_monster_spec(creature_id, sprite)
 
 
 def make_artifact_spec(artifact_id: int, sprite: bytes | None = None) -> AttrSpec:
